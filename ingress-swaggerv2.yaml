@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress          # <-- your existing ingress name
+  annotations:
+    # Optional but safe: regex path + rewrite so static assets load cleanly under /doc
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx    # adjust if needed
+  rules:
+  - host: flexo-aws.starforge.app   # <-- your existing API host
+    http:
+      paths:
+        # NEW: serve Swagger UI at /doc
+        - path: /doc(/|$)(.*)
+          pathType: ImplementationSpecific
+          backend:
+            service:
+              name: swagger-ui
+              port:
+                number: 80
+
+        # EXISTING: your API at root (kept as-is)
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: YOUR_API_SERVICE_NAME
+              port:
+                number: YOUR_API_SERVICE_PORT

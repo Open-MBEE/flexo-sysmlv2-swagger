@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: swagger-ui
+  labels: {app: swagger-ui}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: swagger-ui}
+  template:
+    metadata:
+      labels: {app: swagger-ui}
+    spec:
+      volumes:
+        - name: spec
+          emptyDir: {}
+      initContainers:
+        - name: fetch-and-patch-openapi
+          image: alpine:3.20
+          command: ["/bin/sh","-c"]
+          args:
+            - |
+              set -e
+              apk add --no-cache curl jq
+              # Fetch upstream OpenAPI (pin to a commit SHA if you prefer)
+              curl -fsSL "https://raw.githubusercontent.com/Open-MBEE/flexo-mms-sysmlv2/develop/resources/openapi.json" > /spec/openapi.json
+              # Force Swagger UI to call your external API host
+              jq '.servers = [{"url": "https://flexo.openmbee.org"}]' /spec/openapi.json > /spec/openapi.patched.json
+              mv /spec/openapi.patched.json /spec/openapi.json
+      containers:
+        - name: ui
+          image: swaggerapi/swagger-ui:latest
+          ports:
+            - containerPort: 8080
+          env:
+            # Serve the local file so the UI doesn’t pull from GitHub on each page load
+            - name: URL
+              value: "/spec/openapi.json"
+            # Keep validator off (avoids external calls)
+            - name: VALIDATOR_URL
+              value: "none"
+          volumeMounts:
+            - name: spec
+              mountPath: /usr/share/nginx/html/spec
+          readinessProbe:
+            httpGet: {path: /, port: 8080}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: {cpu: "50m", memory: "64Mi"}
+            limits: {cpu: "200m", memory: "256Mi"}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: swagger-ui
+  labels: {app: swagger-ui}
+spec:
+  selector: {app: swagger-ui}
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
