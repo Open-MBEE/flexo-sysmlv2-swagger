@@ -1,0 +1,80 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: swagger-ui
+  namespace: swagger
+  labels:
+    app: swagger-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: swagger-ui
+  template:
+    metadata:
+      labels:
+        app: swagger-ui
+    spec:
+      volumes:
+        - name: spec
+          emptyDir: {}
+        - name: swagger-init
+          configMap:
+            name: swagger-custom-init
+      initContainers:
+        - name: fetch-openapi
+          image: alpine:3.20
+          command: ["/bin/sh","-c"]
+          args:
+            - |
+              set -e
+              apk add --no-cache curl jq sed
+
+              echo "Downloading OpenAPI spec..."
+              curl -fsSL "OPENAPI_URL" > /tmp/openapi.json
+
+              echo "Patching servers..."
+              jq '.servers=[{"url":"/"}]' /tmp/openapi.json > /tmp/spec1.json
+
+              echo "Fixing invalid $ref paths..."
+              sed -i 's|"$ref": "/components/|"$ref": "#/components/|g' /tmp/spec1.json
+
+              echo "Moving spec to /spec/openapi.json"
+              mv /tmp/spec1.json /spec/openapi.json
+
+              echo "Spec ready"
+          volumeMounts:
+            - name: spec
+              mountPath: /spec
+
+      containers:
+        - name: swagger-ui
+          image: swaggerapi/swagger-ui:latest
+          env:
+            - name: URL
+              value: "/spec/openapi.json"
+            - name: VALIDATOR_URL
+              value: "none"
+          volumeMounts:
+            - name: spec
+              mountPath: /usr/share/nginx/html/spec
+            - name: swagger-init
+              mountPath: /usr/share/nginx/html/swagger-initializer.js
+              subPath: swagger-initializer.js
+          ports:
+            - containerPort: 8080
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: swagger-ui
+  namespace: swagger
+spec:
+  selector:
+    app: swagger-ui
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080

@@ -1,0 +1,41 @@
+---
+apiVersion: getambassador.io/v2
+kind: Mapping
+metadata:
+  name: swagger-ui
+  namespace: swagger
+spec:
+  host: SWAGGER_HOST
+  prefix: /doc/
+  rewrite: /
+  service: swagger-ui.swagger.svc.cluster.local:80
+  bypass_auth: true
+  precedence: 100
+
+---
+apiVersion: getambassador.io/v2
+kind: Mapping
+metadata:
+  name: swagger-ui-spec
+  namespace: swagger
+spec:
+  host: SWAGGER_HOST
+  prefix: /spec/
+  rewrite: /spec/
+  service: swagger-ui.swagger.svc.cluster.local:80
+  bypass_auth: true
+  precedence: 100
+
+---
+apiVersion: getambassador.io/v2
+kind: Mapping
+metadata:
+  name: swagger-ui-spec-redirect
+  namespace: swagger
+spec:
+  host: SWAGGER_HOST
+  prefix: /spec
+  rewrite: /spec/
+  service: swagger-ui.swagger.svc.cluster.local:80
+  bypass_auth: true
+  precedence: 100

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: swagger-custom-init
+  namespace: swagger
+data:
+  swagger-initializer.js: |
+    window.onload = function() {
+      window.ui = SwaggerUIBundle({
+        url: "/spec/openapi.json",
+        dom_id: '#swagger-ui',
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        layout: "StandaloneLayout",
+        requestInterceptor: (req) => {
+          req.headers["Authorization"] =
+            "Bearer BEARER_TOKEN";
+          return req;
+        }
+      });
+    }
